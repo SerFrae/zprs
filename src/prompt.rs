@@ -1,7 +1,8 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
+use ansi_term::Colour::RGB;
 
 const INSERT_SYMBOL: &str = "❯";
-const COMMAND_SYMBOL: &str = "⬢";
+const COMMAND_SYMBOL: &str = "❮";
 const COMMAND_KEYMAP: &str = "vicmd";
 const NO_ERROR: &str = "0";
 
@@ -16,17 +17,17 @@ pub fn display(sub_matches: &ArgMatches<'_>) {
     };
 
     let shell_color = match (symbol, last_return_code) {
-        (COMMAND_SYMBOL, _) => 3,
-        (_, NO_ERROR) => 5,
-        _ => 9,
+        (COMMAND_SYMBOL, _) => RGB(33,207,95),
+        (_, NO_ERROR) => RGB(33,207,95),
+        _ => RGB(255,0,75),
     };
 
     let venv = match venv_name.len() {
         0 => String::from(""),
         _ => format!("%F{{11}}|{}|%f ", venv_name),
     };
-
-    print!("{}%F{{{}}}{}%f ", venv, shell_color, symbol);
+    let display_symbol = shell_color.paint(symbol);
+    print!("{}{} ", venv, display_symbol);
 }
 
 pub fn args<'a, 'b>() -> App<'a, 'b> {
@@ -39,4 +40,3 @@ pub fn args<'a, 'b>() -> App<'a, 'b> {
         .arg(Arg::with_name("keymap").short("k").takes_value(true))
         .arg(Arg::with_name("venv").long("venv").takes_value(true))
 }
-

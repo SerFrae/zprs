@@ -1,5 +1,5 @@
 use ansi_term::{
-    Colour::{Blue, Cyan, Green, Purple, Red},
+    Colour::{RGB, Fixed},
     ANSIGenericString, ANSIStrings,
 };
 use clap::{App, Arg, ArgMatches, SubCommand};
@@ -11,33 +11,33 @@ fn repo_status(r: &Repository, detail: bool) -> Option<String> {
     let mut out = vec![];
 
     if let Some(name) = get_head(r) {
-        out.push(Cyan.paint(name));
+        out.push(RGB(33,207,95).paint(name));
     }
 
     if !detail {
         if let Some((ic, wtc, cflt, utrk)) = count_statuses(r) {
             if ic != 0 || wtc != 0 || cflt != 0 || utrk !=0 {
-                out.push(Red.bold().paint("*"))
+                out.push(RGB(255,0,75).bold().paint("*"))
             }
         }
     } else {
         if let Some((ahead, behind)) = get_pos(r) {
             if ahead > 0 {
-                out.push(Cyan.paint(format!("↑{}", ahead)));
+                out.push(RGB(255,202,0).paint(format!("↑{}", ahead)));
             }
             if behind > 0 {
-                out.push(Cyan.paint(format!("↓{}", behind)));
+                out.push(RGB(255,202,0).paint(format!("↓{}", behind)));
             }
         }
         if let Some((ic, wtc, cflt, utrk)) = count_statuses(r) {
             if ic == 0 && wtc == 0 && cflt == 0 && utrk == 0 {
-                out.push(Green.paint("✔"));
+                out.push(RGB(255,140,0).paint("✔"));
             } else {
                 if ic > 0 {
-                    out.push(Green.paint(format!("♦{}", ic)));
+                    out.push(RGB(255,140,0).paint(format!("♦{}", ic)));
                 }
                 if cflt > 0 {
-                    out.push(Red.paint(format!("✖{}", cflt)));
+                    out.push(RGB(255,0,75).paint(format!("✖{}", cflt)));
                 }
                 if wtc > 0 {
                     out.push(ANSIGenericString::from(format!("✚{}", wtc)));
@@ -49,9 +49,11 @@ fn repo_status(r: &Repository, detail: bool) -> Option<String> {
         }
 
         if let Some(action) = get_action(r) {
-            out.push(Purple.paint(format!(" {}", action)));
+            out.push(RGB(33,207,95).paint(format!(" {}", action)));
         }
     }
+
+    out.push(RGB(33,207,95).paint(format!(" →")));
 
     Some(ANSIStrings(&out).to_string())
 }
@@ -181,15 +183,15 @@ fn get_action(r: &Repository) -> Option<String> {
 
 pub fn display(sub_matches: &ArgMatches<'_>) {
     let path = env::current_dir().unwrap();
-    let display_path = Blue.paint(truncate_path(path.to_str().unwrap()));
+    let display_path = RGB(0,192,255).bold().paint(truncate_path(path.to_str().unwrap()));
 
     let branch = match Repository::discover(path) {
         Ok(r) => repo_status(&r, sub_matches.is_present("detail")),
         Err(_) => None,
     };
-    let display_branch = Cyan.paint(branch.unwrap_or_default());
+    let display_branch = Fixed(13).paint(branch.unwrap_or_default());
 
-    println!("\n{} {}", display_path, display_branch);
+    println!("{} {}", display_path, display_branch);
 }
 
 fn truncate_path(cwd: &str) -> String {
