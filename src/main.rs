@@ -2,7 +2,7 @@ use ansi_term::{
     Colour::{RGB, Fixed},
     ANSIGenericString, ANSIStrings,
 };
-use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
+use clap::{App, AppSettings, Arg, SubCommand};
 use git2::{self, Repository, StatusOptions};
 use std::env;
 use tico::tico;
@@ -12,75 +12,75 @@ const COMMAND_SYMBOL: &str = "←";
 const COMMAND_KEYMAP: &str = "vicmd";
 const NO_ERROR: &str = "0";
 
-fn repo_status(r: &Repository, detail: bool) -> Option<String> {
-    let mut out = vec![];
+fn repo_status(repo: &Repository, detail: bool) -> Option<String> {
+    let mut output = vec![];
 
-    if let Some(name) = get_head(r) {
-        out.push(RGB(33,207,95).paint(name));
+    if let Some(name) = get_head(repo) {
+        output.push(RGB(33,207,95).paint(name));
     }
 
     if !detail {
-        if let Some((ic, wtc, cflt, utrk)) = count_statuses(r) {
-            if ic != 0 || wtc != 0 || cflt != 0 || utrk !=0 {
-                out.push(RGB(255,0,75).bold().paint("*"))
+        if let Some((ic, wtc, conflict, untracked)) = count_statuses(repo) {
+            if ic != 0 || wtc != 0 || conflict != 0 || untracked !=0 {
+                output.push(RGB(255,0,75).bold().paint("*"))
             }
         }
     } else {
-        if let Some((ahead, behind)) = get_pos(r) {
+        if let Some((ahead, behind)) = get_ahead_behind(repo) {
             if ahead > 0 {
-                out.push(RGB(255,202,0).paint(format!("↑{}", ahead)));
+                output.push(RGB(255,202,0).paint(format!("↑{}", ahead)));
             }
             if behind > 0 {
-                out.push(RGB(255,202,0).paint(format!("↓{}", behind)));
+                output.push(RGB(255,202,0).paint(format!("↓{}", behind)));
             }
         }
-        if let Some((ic, wtc, cflt, utrk)) = count_statuses(r) {
-            if ic == 0 && wtc == 0 && cflt == 0 && utrk == 0 {
-                out.push(RGB(255,140,0).paint("✔"));
+        if let Some((ic, wtc, conflict, untracked)) = count_statuses(repo) {
+            if ic == 0 && wtc == 0 && conflict == 0 && untracked == 0 {
+                output.push(RGB(255,140,0).paint("✔"));
             } else {
                 if ic > 0 {
-                    out.push(RGB(255,140,0).paint(format!("♦{}", ic)));
+                    output.push(RGB(255,140,0).paint(format!("♦{}", ic)));
                 }
-                if cflt > 0 {
-                    out.push(RGB(255,0,75).paint(format!("✖{}", cflt)));
+                if conflict > 0 {
+                    output.push(RGB(255,0,75).paint(format!("✖{}", conflict)));
                 }
                 if wtc > 0 {
-                    out.push(ANSIGenericString::from(format!("✚{}", wtc)));
+                    output.push(ANSIGenericString::from(format!("✚{}", wtc)));
                 }
-                if utrk > 0 {
-                    out.push(ANSIGenericString::from("…"));
+                if untracked > 0 {
+                    output.push(ANSIGenericString::from("…"));
                 }
             }
         }
 
-        if let Some(action) = get_action(r) {
-            out.push(RGB(33,207,95).paint(format!(" {}", action)));
+        if let Some(action) = get_action(repo) {
+            output.push(RGB(33,207,95).paint(format!(" {}", action)));
         }
     }
-    out.push(ANSIGenericString::from(" "));
-    Some(ANSIStrings(&out).to_string())
+    output.push(ANSIGenericString::from(" "));
+    Some(ANSIStrings(&output).to_string())
 }
 
-fn get_pos(r: &Repository) -> Option<(usize, usize)> {
-    let head = r.head().ok()?;
+fn get_ahead_behind(repo: &Repository) -> Option<(usize, usize)> {
+    let head = repo.head().ok()?;
     if !head.is_branch() {
         return None;
     }
 
     let head_name = head.shorthand()?;
-    let head_branch = r.find_branch(head_name, git2::BranchType::Local).ok()?;
+    let head_branch = repo.find_branch(head_name, git2::BranchType::Local).ok()?;
     let upstream = head_branch.upstream().ok()?;
     let head_oid = head.target()?;
     let upstream_oid = upstream.get().target()?;
 
-    r.graph_ahead_behind(head_oid, upstream_oid).ok()
+    repo.graph_ahead_behind(head_oid, upstream_oid).ok()
 }
 
-fn get_head(r: &Repository) -> Option<String> {
-    let head = r.head().ok()?;
-    if let Some(short) = head.shorthand() {
-        if short != "HEAD" {
-            return Some(short.to_string());
+fn get_head(repo: &Repository) -> Option<String> {
+    let head = repo.head().ok()?;
+    if let Some(shorthand) = head.shorthand() {
+        if shorthand != "HEAD" {
+            return Some(shorthand.to_string());
         }
     }
 
@@ -127,8 +127,8 @@ fn count_statuses(r: &Repository) -> Option<(usize, usize, usize, usize)> {
     ))
 }
 
-fn get_action(r: &Repository) -> Option<String> {
-    let gitdir = r.path();
+fn get_action(repo: &Repository) -> Option<String> {
+    let gitdir = repo.path();
 
     for tmp in &[
         gitdir.join("rebase-apply"),
@@ -190,61 +190,61 @@ fn truncate_path(cwd: &str) -> String {
     tico(&cwd, home.to_str())
 }
 
-pub fn display(sub_matches: &ArgMatches<'_>) {
-    let last_return_code = sub_matches.value_of("last_return_code").unwrap_or("0");
-    let keymap = sub_matches.value_of("keymap").unwrap_or("US");
-
-    let symbol = match keymap {
-        COMMAND_KEYMAP => COMMAND_SYMBOL,
-        _ => INSERT_SYMBOL,
-    };
-
-    let shell_color = match (symbol, last_return_code) {
-        (COMMAND_SYMBOL, _) => RGB(33,207,95),
-        (_, NO_ERROR) => RGB(33,207,95),
-        _ => RGB(255,0,75),
-    };
-    let display_symbol = shell_color.bold().paint(symbol);
-
-    let path = env::current_dir().unwrap();
-    let display_path = RGB(0,192,255).bold().paint(truncate_path(path.to_str().unwrap()));
-
-    let branch = match Repository::discover(path) {
-        Ok(r) => repo_status(&r, sub_matches.is_present("detail")),
-        Err(_) => None,
-    };
-    let display_branch = Fixed(13).paint(branch.unwrap_or_default());
-
-    print!("{} {}{} ", display_path, display_branch, display_symbol);
-}
-
-pub fn args<'a, 'b>() -> App<'a, 'b> {
-    SubCommand::with_name("prompt")
-    .arg(
-        Arg::with_name("detail")
-            .long("detail")
-            .help("Print git status")
-    )
-    .arg(
-        Arg::with_name("last_return_code")
-            .short("r")
-            .takes_value(true),
-    )
-    .arg(
-        Arg::with_name("keymap")
-            .short("k")
-            .takes_value(true)
-    )
-}
-
 fn main() {
     let matches = App::new("zprs")
         .setting(AppSettings::SubcommandRequired)
-        .subcommand(args())
+        .subcommand(SubCommand::with_name("precmd")
+            .arg(
+                Arg::with_name("detail")
+                    .long("detail")
+                    .help("Print git status")
+            )
+        )
+        .subcommand(SubCommand::with_name("prompt")
+            .arg(
+                Arg::with_name("last_return_code")
+                    .short("r")
+                    .takes_value(true),
+            )
+            .arg(
+                Arg::with_name("keymap")
+                    .short("k")
+                    .takes_value(true)
+            )
+        )
         .get_matches();
 
     match matches.subcommand() {
-        ("prompt", Some(s)) => display(s),
+        ("precmd", Some(s)) => {
+            //let last_return_code = matches.value_of("last_return_code").unwrap_or("0");
+            let path = env::current_dir().unwrap();
+            let display_path = RGB(0,192,255).bold().paint(truncate_path(path.to_str().unwrap()));
+
+            let branch = match Repository::discover(path) {
+                Ok(r) => repo_status(&r, s.is_present("detail")),
+                Err(_) => None,
+            };
+            let display_branch = Fixed(13).paint(branch.unwrap_or_default());
+            print!("{} {}", display_path, display_branch);
+        },
+        ("prompt", Some(s)) => {
+            let last_return_code = s.value_of("last_return_code").unwrap_or("0");
+            let keymap = s.value_of("keymap").unwrap_or("US");
+
+            let symbol = match keymap {
+                COMMAND_KEYMAP => COMMAND_SYMBOL,
+                _ => INSERT_SYMBOL,
+            };
+
+            let shell_colour = match (symbol, last_return_code) {
+                (COMMAND_SYMBOL, _) => "#21cf5f",
+                (_, NO_ERROR) => "#21cf5f",
+                _ => "#ff004b",
+            };
+
+            print!("%F{{{}}}{}%f ", shell_colour, symbol);
+        },
         _ => (),
     }
+
 }
