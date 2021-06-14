@@ -2,61 +2,53 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use git2::{self, Repository, StatusOptions};
 use std::env;
 
-const INSERT_SYMBOL: &str = "→";
-const COMMAND_SYMBOL: &str = "←";
+const INSERT_SYMBOL: &str = "➔ ";
+const COMMAND_SYMBOL: &str = "⛛ ";
 const COMMAND_KEYMAP: &str = "vicmd";
 const NO_ERROR: &str = "0";
 const RED: &str = "#ff004b";
 const BLUE: &str = "#00c0ff";
 const GREEN: &str = "#21cf5f";
+const PURPLE: &str = "#d448ff";
 const ORANGE: &str = "#ff8c00";
 const YELLOW: &str = "#ffca00";
 
-fn repo_status(repo: &Repository, detail: bool) -> Option<String> {
+fn repo_status(repo: &Repository) -> Option<String> {
     let mut output = vec![];
 
     if let Some(name) = get_head(repo) {
-        output.push(format!("%F{{{}}}{}%f", GREEN, name));
+        output.push(format!("%B%F{{{}}}{}%f%b", GREEN, name));
     }
 
-    if !detail {
-        if let Some((ic, wtc, conflict, untracked)) = count_statuses(repo) {
-            if ic != 0 || wtc != 0 || conflict != 0 || untracked !=0 {
-                output.push(format!("%F{{{}}} ✱%f", RED));
+    if let Some((ahead, behind)) = get_ahead_behind(repo) {
+        if ahead > 0 {
+            output.push(format!("%F{{{}}} 🠉{}%f", YELLOW, ahead));
+        }
+        if behind > 0 {
+            output.push(format!("%F{{{}}} 🠋{}%F", ORANGE, behind));
+        }
+    }
+    if let Some((ic, wtc, conflict, untracked)) = count_statuses(repo) {
+        if ic == 0 && wtc == 0 && conflict == 0 && untracked == 0 {
+            output.push(format!("%B%F{{{}}} ⁂ %f%b", GREEN));
+        } else {
+            if ic > 0 {
+                output.push(format!("%B%F{{{}}} 𝝨{}%f%b", YELLOW, ic));
+            }
+            if conflict > 0 {
+                output.push(format!("%B%F{{{}}} ‼{}%f%b", RED, conflict));
+            }
+            if wtc > 0 {
+                output.push(format!("%B%F{{{}}} 𝝙{}%f%b", ORANGE, wtc));
+            }
+            if untracked > 0 {
+                output.push(format!("%B%F{{{}}} ?%f%b", PURPLE));
             }
         }
-    } else {
-        println!("test");
-        if let Some((ahead, behind)) = get_ahead_behind(repo) {
-            if ahead > 0 {
-                output.push(format!("%F{{{}}} ↑{}%f", YELLOW, ahead));
-            }
-            if behind > 0 {
-                output.push(format!("%F{{{}}} ↓{}%F", ORANGE, behind));
-            }
-        }
-        if let Some((ic, wtc, conflict, untracked)) = count_statuses(repo) {
-            if ic == 0 && wtc == 0 && conflict == 0 && untracked == 0 {
-                output.push(format!("%F{{{}}} ✔%f", GREEN));
-            } else {
-                if ic > 0 {
-                    output.push(format!("%F{{{}}} ⊘{}", YELLOW, ic));
-                }
-                if conflict > 0 {
-                    output.push(format!("%F{{{}}} ✘{}", RED, conflict));
-                }
-                if wtc > 0 {
-                    output.push(format!("%F{{{}}} ⁑{}", YELLOW, wtc));
-                }
-                if untracked > 0 {
-                    output.push(format!("%F{{{}}} …%f", ORANGE));
-                }
-            }
-        }
+    }
 
-        if let Some(action) = get_action(repo) {
-            output.push(format!(" {}", action));
-        }
+    if let Some(action) = get_action(repo) {
+        output.push(format!(" {}", action));
     }
     output.push(String::from(" "));
     Some(output.into_iter().collect::<String>())
@@ -230,13 +222,7 @@ fn truncate_path(path: &str) -> String {
 fn main() {
     let matches = App::new("zprs")
         .setting(AppSettings::SubcommandRequired)
-        .subcommand(SubCommand::with_name("precmd")
-            .arg(
-                Arg::with_name("detail")
-                    .long("detail")
-                    .help("Print git status")
-            )
-        )
+        .subcommand(SubCommand::with_name("precmd"))
         .subcommand(SubCommand::with_name("prompt")
             .arg(
                 Arg::with_name("last_return_code")
@@ -252,12 +238,12 @@ fn main() {
         .get_matches();
 
     match matches.subcommand() {
-        ("precmd", Some(s)) => {
+        ("precmd", _) => {
             let path = env::current_dir().unwrap();
             let display_path = format!("%B%F{{{}}}{}%f%b", BLUE, truncate_path(path.to_str().unwrap()));
 
             let branch = match Repository::discover(path) {
-                Ok(r) => repo_status(&r, s.is_present("detail")),
+                Ok(r) => repo_status(&r),
                 Err(_) => None,
             };
             let display_branch = format!("%F{{{}}}%f{}", GREEN, branch.unwrap_or_default());
