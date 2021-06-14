@@ -1,64 +1,64 @@
-use ansi_term::{
-    Colour::{RGB, Fixed},
-    ANSIGenericString, ANSIStrings,
-};
 use clap::{App, AppSettings, Arg, SubCommand};
 use git2::{self, Repository, StatusOptions};
 use std::env;
-use tico::tico;
 
 const INSERT_SYMBOL: &str = "→";
 const COMMAND_SYMBOL: &str = "←";
 const COMMAND_KEYMAP: &str = "vicmd";
 const NO_ERROR: &str = "0";
+const RED: &str = "#ff004b";
+const BLUE: &str = "#00c0ff";
+const GREEN: &str = "#21cf5f";
+const ORANGE: &str = "#ff8c00";
+const YELLOW: &str = "#ffca00";
 
 fn repo_status(repo: &Repository, detail: bool) -> Option<String> {
     let mut output = vec![];
 
     if let Some(name) = get_head(repo) {
-        output.push(RGB(33,207,95).paint(name));
+        output.push(format!("%F{{{}}}{}%f", GREEN, name));
     }
 
     if !detail {
         if let Some((ic, wtc, conflict, untracked)) = count_statuses(repo) {
             if ic != 0 || wtc != 0 || conflict != 0 || untracked !=0 {
-                output.push(RGB(255,0,75).bold().paint("*"))
+                output.push(format!("%F{{{}}}*%f", RED));
             }
         }
     } else {
         if let Some((ahead, behind)) = get_ahead_behind(repo) {
             if ahead > 0 {
-                output.push(RGB(255,202,0).paint(format!("↑{}", ahead)));
+                output.push(format!("%F{{{}}}↑{}%f", YELLOW, ahead));
             }
             if behind > 0 {
-                output.push(RGB(255,202,0).paint(format!("↓{}", behind)));
+                output.push(format!("%F{{{}}}↓{}%F", ORANGE, behind));
             }
         }
         if let Some((ic, wtc, conflict, untracked)) = count_statuses(repo) {
             if ic == 0 && wtc == 0 && conflict == 0 && untracked == 0 {
-                output.push(RGB(255,140,0).paint("✔"));
+                output.push(format!("%F{{{}}}%%f", GREEN));
             } else {
                 if ic > 0 {
-                    output.push(RGB(255,140,0).paint(format!("♦{}", ic)));
+                    output.push(format!("%F{{{}}}♦{}", YELLOW, ic));
                 }
                 if conflict > 0 {
-                    output.push(RGB(255,0,75).paint(format!("✖{}", conflict)));
+                    output.push(format!("%F{{{}}}!{}", RED, conflict));
                 }
                 if wtc > 0 {
-                    output.push(ANSIGenericString::from(format!("✚{}", wtc)));
+                    output.push(format!("%F{{{}}}#{}", YELLOW, wtc));
                 }
                 if untracked > 0 {
-                    output.push(ANSIGenericString::from("…"));
+                    output.push(format!("%F{{{}}}…%f", ORANGE));
                 }
             }
         }
 
         if let Some(action) = get_action(repo) {
-            output.push(RGB(33,207,95).paint(format!(" {}", action)));
+            output.push(format!(" {}", action));
         }
     }
-    output.push(ANSIGenericString::from(" "));
-    Some(ANSIStrings(&output).to_string())
+    output.push(String::from(" "));
+    Some(output.into_iter().collect::<String>())
 }
 
 fn get_ahead_behind(repo: &Repository) -> Option<(usize, usize)> {
@@ -184,10 +184,46 @@ fn get_action(repo: &Repository) -> Option<String> {
     None
 }
 
-fn truncate_path(cwd: &str) -> String {
+fn truncate_path(path: &str) -> String {
     let home = dirs::home_dir().unwrap();
+    let truncated = match home.to_str() {
+        Some(dir) => path.replacen(&dir, "~", 1),
+        None => path.to_owned(),
+    };
 
-    tico(&cwd, home.to_str())
+    let mut shortened = String::from("");
+    let mut skip_char = false;
+    let mut count = 0;
+    let sections = truncated.chars().filter(|&x| x == '/').count();
+
+    for c in truncated.chars() {
+        match c {
+            '~' => {
+                if !skip_char {
+                    shortened.push(c)
+                }
+            }
+            '.' => {
+                skip_char = false;
+                shortened.push(c);
+            }
+            '/' => {
+                skip_char = false;
+                count += 1;
+                shortened.push(c)
+            }
+            _ => {
+                if skip_char && count < sections {
+                    continue;
+                } else {
+                    skip_char = true;
+                    shortened.push(c);
+                }
+            }
+        }
+    }
+
+    shortened
 }
 
 fn main() {
@@ -216,15 +252,14 @@ fn main() {
 
     match matches.subcommand() {
         ("precmd", Some(s)) => {
-            //let last_return_code = matches.value_of("last_return_code").unwrap_or("0");
             let path = env::current_dir().unwrap();
-            let display_path = RGB(0,192,255).bold().paint(truncate_path(path.to_str().unwrap()));
+            let display_path = format!("%B%F{{{}}}{}%f%b", BLUE, truncate_path(path.to_str().unwrap()));
 
             let branch = match Repository::discover(path) {
                 Ok(r) => repo_status(&r, s.is_present("detail")),
                 Err(_) => None,
             };
-            let display_branch = Fixed(13).paint(branch.unwrap_or_default());
+            let display_branch = format!("%F{{{}}}%f{}", GREEN, branch.unwrap_or_default());
             print!("{} {}", display_path, display_branch);
         },
         ("prompt", Some(s)) => {
@@ -237,14 +272,13 @@ fn main() {
             };
 
             let shell_colour = match (symbol, last_return_code) {
-                (COMMAND_SYMBOL, _) => "#21cf5f",
-                (_, NO_ERROR) => "#21cf5f",
-                _ => "#ff004b",
+                (COMMAND_SYMBOL, _) => GREEN,
+                (_, NO_ERROR) => GREEN,
+                _ => RED,
             };
 
             print!("%F{{{}}}{}%f ", shell_colour, symbol);
         },
         _ => (),
     }
-
 }
