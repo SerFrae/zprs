@@ -2,8 +2,8 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use git2::{self, Repository, StatusOptions};
 use std::env;
 
-const INSERT_SYMBOL: &str = "➔ ";
-const COMMAND_SYMBOL: &str = "⛛ ";
+const INSERT_SYMBOL: &str = ">";
+const COMMAND_SYMBOL: &str = "<";
 const COMMAND_KEYMAP: &str = "vicmd";
 const NO_ERROR: &str = "0";
 const RED: &str = "#ff004b";
@@ -22,24 +22,24 @@ fn repo_status(repo: &Repository) -> Option<String> {
 
     if let Some((ahead, behind)) = get_ahead_behind(repo) {
         if ahead > 0 {
-            output.push(format!("%F{{{}}} 🠉{}%f", YELLOW, ahead));
+            output.push(format!("%B%F{{{}}} ↑{}%f%b", YELLOW, ahead));
         }
         if behind > 0 {
-            output.push(format!("%F{{{}}} 🠋{}%F", ORANGE, behind));
+            output.push(format!("%B%F{{{}}} ↓{}%F%b", ORANGE, behind));
         }
     }
     if let Some((ic, wtc, conflict, untracked)) = count_statuses(repo) {
         if ic == 0 && wtc == 0 && conflict == 0 && untracked == 0 {
-            output.push(format!("%B%F{{{}}} ⁂ %f%b", GREEN));
+            output.push(format!("%B%F{{{}}} Σ%f%b", GREEN));
         } else {
             if ic > 0 {
-                output.push(format!("%B%F{{{}}} 𝝨{}%f%b", YELLOW, ic));
+                output.push(format!("%B%F{{{}}} &{}%f%b", YELLOW, ic));
             }
             if conflict > 0 {
-                output.push(format!("%B%F{{{}}} ‼{}%f%b", RED, conflict));
+                output.push(format!("%B%F{{{}}} !{}%f%b", RED, conflict));
             }
             if wtc > 0 {
-                output.push(format!("%B%F{{{}}} 𝝙{}%f%b", ORANGE, wtc));
+                output.push(format!("%B%F{{{}}} +{}%f%b", ORANGE, wtc));
             }
             if untracked > 0 {
                 output.push(format!("%B%F{{{}}} ?%f%b", PURPLE));
@@ -264,7 +264,7 @@ fn main() {
                 _ => RED,
             };
 
-            print!("%F{{{}}}{}%f ", shell_colour, symbol);
+            print!("%B%F{{{}}}{}%f%b ", shell_colour, symbol);
         },
         _ => (),
     }
