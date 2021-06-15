@@ -36,7 +36,7 @@ fn repo_status(repo: &Repository) -> Option<String> {
                 output.push(format!("%B%F{{{}}} Π{}%f%b", YELLOW, ic));
             }
             if conflict > 0 {
-                output.push(format!("%B%F{{{}}} !{}%f%b", RED, conflict));
+                output.push(format!("%B%F{{{}}} ‼️{}%f%b", RED, conflict));
             }
             if wtc > 0 {
                 output.push(format!("%B%F{{{}}} Δ{}%f%b", ORANGE, wtc));
