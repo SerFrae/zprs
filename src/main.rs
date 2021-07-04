@@ -1,3 +1,4 @@
+extern crate libc;
 use clap::{App, AppSettings, Arg, SubCommand};
 use git2::{self, Repository, StatusOptions};
 use std::env;
@@ -5,44 +6,47 @@ use std::env;
 const INSERT_SYMBOL: &str = ">";
 const COMMAND_SYMBOL: &str = "<";
 const COMMAND_KEYMAP: &str = "vicmd";
-const NO_ERROR: &str = "0";
-const RED: &str = "#ff004b";
-const BLUE: &str = "#00c0ff";
-const GREEN: &str = "#21cf5f";
-const PURPLE: &str = "#d448ff";
-const ORANGE: &str = "#ff8c00";
-const YELLOW: &str = "#ffca00";
+const RED: &str = "#fb4934";
+const BLUE: &str = "#83a598";
+const CYAN: &str = "#8ec07c";
+//const GREEN: &str = "#b8bb26";
+const PURPLE: &str = "#b3869b";
+const ORANGE: &str = "#fe8019";
+const YELLOW: &str = "#fabd2f";
+const WHITE: &str = "#d5c4a1";
+const BRBLACK: &str = "#665c54";
 
 fn repo_status(repo: &Repository) -> Option<String> {
     let mut output = vec![];
 
     if let Some(name) = get_head(repo) {
-        output.push(format!("%B%F{{{}}}{}%f%b", GREEN, name));
+        output.push(format!("%F{{{}}}{}%f", CYAN, name));
     }
 
     if let Some((ahead, behind)) = get_ahead_behind(repo) {
         if ahead > 0 {
-            output.push(format!("%B%F{{{}}} ↑{}%f%b", YELLOW, ahead));
+            output.push(format!("%F{{{}}} ↑{}%f", YELLOW, ahead));
         }
         if behind > 0 {
-            output.push(format!("%B%F{{{}}} ↓{}%F%b", ORANGE, behind));
+            output.push(format!("%F{{{}}} ↓{}%F", ORANGE, behind));
         }
     }
+
     if let Some((ic, wtc, conflict, untracked)) = count_statuses(repo) {
         if ic == 0 && wtc == 0 && conflict == 0 && untracked == 0 {
-            output.push(format!("%B%F{{{}}} Σ%f%b", GREEN));
+            output.push(format!("%F{{{}}} Σ%f", CYAN));
         } else {
             if ic > 0 {
-                output.push(format!("%B%F{{{}}} Π{}%f%b", YELLOW, ic));
+                output.push(format!("%F{{{}}} +{}%f", YELLOW, ic));
             }
             if conflict > 0 {
-                output.push(format!("%B%F{{{}}} ‼️{}%f%b", RED, conflict));
+                output.push(format!("%F{{{}}} !{}%f", RED, conflict));
             }
             if wtc > 0 {
-                output.push(format!("%B%F{{{}}} Δ{}%f%b", ORANGE, wtc));
+                output.push(format!("%F{{{}}} *{}%f", ORANGE, wtc));
             }
             if untracked > 0 {
-                output.push(format!("%B%F{{{}}} ?%f%b", PURPLE));
+                output.push(format!("%F{{{}}} ?%f", PURPLE));
             }
         }
     }
@@ -176,81 +180,85 @@ fn get_action(repo: &Repository) -> Option<String> {
 
     None
 }
+fn get_time() -> String {
+    chrono::Local::now().time().format("%H:%M").to_string()
+}
 
-fn truncate_path(path: &str) -> String {
-    let home = dirs::home_dir().unwrap();
-    let truncated = match home.to_str() {
-        Some(dir) => path.replacen(&dir, "~", 1),
-        None => path.to_owned(),
-    };
+fn ptr_to_string(name: *mut i8) -> String {
+    let uname = name as *mut _ as *mut u8;
 
-    let mut shortened = String::from("");
-    let mut skip_char = false;
-    let mut count = 0;
-    let sections = truncated.chars().filter(|&x| x == '/').count();
+    let s;
+    let string;
 
-    for c in truncated.chars() {
-        match c {
-            '~' => {
-                if !skip_char {
-                    shortened.push(c)
-                }
-            }
-            '.' => {
-                skip_char = false;
-                shortened.push(c);
-            }
-            '/' => {
-                skip_char = false;
-                count += 1;
-                shortened.push(c)
-            }
-            _ => {
-                if skip_char && count < sections {
-                    continue;
-                } else {
-                    skip_char = true;
-                    shortened.push(c);
-                }
-            }
-        }
+    unsafe {
+        s = ::std::slice::from_raw_parts(uname, libc::strlen(name));
+        string = String::from_utf8_lossy(s).to_string();
     }
 
-    shortened
+    string
+}
+
+fn get_hostname() -> String {
+    let mut string = [0 as libc::c_char; 255];
+
+    unsafe {
+        libc::gethostname(&mut string[0], 255);
+    }
+
+    ptr_to_string(&mut string[0])
+}
+
+fn pwd(path: &str) -> &str {
+    let home = dirs::home_dir().unwrap();
+    let path = match home.to_str() {
+        p if Some(path) == p => return "home",
+        _ => path,
+    };
+
+    let mut index = 0;
+    for (i, c) in path.chars().enumerate() {
+        if c == '/' {
+            index = i
+        }
+    }
+    &path[index + 1..]
 }
 
 fn main() {
     let matches = App::new("zprs")
         .setting(AppSettings::SubcommandRequired)
         .subcommand(SubCommand::with_name("precmd"))
-        .subcommand(SubCommand::with_name("prompt")
-            .arg(
-                Arg::with_name("last_return_code")
-                    .short("r")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("keymap")
-                    .short("k")
-                    .takes_value(true)
-            )
+        .subcommand(
+            SubCommand::with_name("prompt")
+                .arg(
+                    Arg::with_name("last_return_code")
+                        .short("r")
+                        .takes_value(true),
+                )
+                .arg(Arg::with_name("keymap").short("k").takes_value(true)),
         )
         .get_matches();
 
     match matches.subcommand() {
         ("precmd", _) => {
             let path = env::current_dir().unwrap();
-            let display_path = format!("%B%F{{{}}}{}%f%b", BLUE, truncate_path(path.to_str().unwrap()));
+            let display_path = format!("%F{{{}}}{} %f", YELLOW, pwd(path.to_str().unwrap()));
 
             let branch = match Repository::discover(path) {
                 Ok(r) => repo_status(&r),
                 Err(_) => None,
             };
-            let display_branch = format!("%F{{{}}}%f{}", GREEN, branch.unwrap_or_default());
-            print!("{} {}", display_path, display_branch);
-        },
+
+            let display_time = format!("%F{{{}}}[{}] %f", WHITE, get_time());
+            let display_host = format!("%F{{{}}}{}%f%F{{{}}}:%f", BLUE, get_hostname(), BRBLACK);
+            let display_branch = format!("%F{{{}}}%f{}", CYAN, branch.unwrap_or_default());
+
+            print!(
+                "{}{}{}{}",
+                display_time, display_host, display_path, display_branch
+            );
+        }
         ("prompt", Some(s)) => {
-            let last_return_code = s.value_of("last_return_code").unwrap_or("0");
             let keymap = s.value_of("keymap").unwrap_or("US");
 
             let symbol = match keymap {
@@ -258,14 +266,8 @@ fn main() {
                 _ => INSERT_SYMBOL,
             };
 
-            let shell_colour = match (symbol, last_return_code) {
-                (COMMAND_SYMBOL, _) => GREEN,
-                (_, NO_ERROR) => GREEN,
-                _ => RED,
-            };
-
-            print!("%B%F{{{}}}{}%f%b ", shell_colour, symbol);
-        },
+            print!("%F{{{}}}{}%f ", RED, symbol);
+        }
         _ => (),
     }
 }

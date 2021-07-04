@@ -5,6 +5,8 @@ authors = ["a7raser <a7raser@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+chrono = "0.4.19"
 clap = "2.33.3"
 dirs = "3.0.2"
 git2 = "0.13.20"
+libc = "0.2.97"
