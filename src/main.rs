@@ -25,22 +25,22 @@ fn repo_status(repo: &Repository) -> Option<String> {
 
     if let Some((ahead, behind)) = get_ahead_behind(repo) {
         if ahead > 0 {
-            output.push(format!("%F{{{}}} ↑{}%f ", YELLOW, ahead));
+            output.push(format!("%F{{{}}} ↑{}%f", YELLOW, ahead));
         }
         if behind > 0 {
-            output.push(format!("%F{{{}}} ↓{}%F ", ORANGE, behind));
+            output.push(format!("%F{{{}}} ↓{}%F", ORANGE, behind));
         }
     }
 
     if let Some((ic, wtc, conflict, untracked)) = count_statuses(repo) {
         if ic == 0 && wtc == 0 && conflict == 0 && untracked == 0 {
-            output.push(format!("%F{{{}}} Σ%f ", CYAN));
+            output.push(format!("%F{{{}}} Σ%f", CYAN));
         } else {
             if ic > 0 {
-                output.push(format!("%F{{{}}} +{}%f ", YELLOW, ic));
+                output.push(format!("%F{{{}}} +{}%f", YELLOW, ic));
             }
             if conflict > 0 {
-                output.push(format!("%F{{{}}} !{}%f ", RED, conflict));
+                output.push(format!("%F{{{}}} !{}%f", RED, conflict));
             }
             if wtc > 0 {
                 output.push(format!("%F{{{}}} *{}%f", ORANGE, wtc));
