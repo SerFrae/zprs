@@ -20,27 +20,27 @@ fn repo_status(repo: &Repository) -> Option<String> {
     let mut output = vec![];
 
     if let Some(name) = get_head(repo) {
-        output.push(format!("%F{{{}}}{}%f", CYAN, name));
+        output.push(format!("%F{{{}}} {}%f", CYAN, name));
     }
 
     if let Some((ahead, behind)) = get_ahead_behind(repo) {
         if ahead > 0 {
-            output.push(format!("%F{{{}}} ↑{}%f", YELLOW, ahead));
+            output.push(format!("%F{{{}}} ↑{}%f ", YELLOW, ahead));
         }
         if behind > 0 {
-            output.push(format!("%F{{{}}} ↓{}%F", ORANGE, behind));
+            output.push(format!("%F{{{}}} ↓{}%F ", ORANGE, behind));
         }
     }
 
     if let Some((ic, wtc, conflict, untracked)) = count_statuses(repo) {
         if ic == 0 && wtc == 0 && conflict == 0 && untracked == 0 {
-            output.push(format!("%F{{{}}} Σ%f", CYAN));
+            output.push(format!("%F{{{}}} Σ%f ", CYAN));
         } else {
             if ic > 0 {
-                output.push(format!("%F{{{}}} +{}%f", YELLOW, ic));
+                output.push(format!("%F{{{}}} +{}%f ", YELLOW, ic));
             }
             if conflict > 0 {
-                output.push(format!("%F{{{}}} !{}%f", RED, conflict));
+                output.push(format!("%F{{{}}} !{}%f ", RED, conflict));
             }
             if wtc > 0 {
                 output.push(format!("%F{{{}}} *{}%f", ORANGE, wtc));
@@ -54,7 +54,6 @@ fn repo_status(repo: &Repository) -> Option<String> {
     if let Some(action) = get_action(repo) {
         output.push(format!(" {}", action));
     }
-    output.push(String::from(" "));
     Some(output.into_iter().collect::<String>())
 }
 
@@ -242,7 +241,7 @@ fn main() {
     match matches.subcommand() {
         ("precmd", _) => {
             let path = env::current_dir().unwrap();
-            let display_path = format!("%F{{{}}}{} %f", YELLOW, pwd(path.to_str().unwrap()));
+            let display_path = format!("%F{{{}}}{}%f", YELLOW, pwd(path.to_str().unwrap()));
 
             let branch = match Repository::discover(path) {
                 Ok(r) => repo_status(&r),
@@ -251,7 +250,7 @@ fn main() {
 
             let display_time = format!("%F{{{}}}[{}] %f", WHITE, get_time());
             let display_host = format!("%F{{{}}}{}%f%F{{{}}}:%f", BLUE, get_hostname(), BRBLACK);
-            let display_branch = format!("%F{{{}}}%f{}", CYAN, branch.unwrap_or_default());
+            let display_branch = format!("%F{{{}}}%f{} ", CYAN, branch.unwrap_or_default());
 
             print!(
                 "{}{}{}{}",
