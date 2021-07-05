@@ -51,9 +51,6 @@ fn repo_status(repo: &Repository) -> Option<String> {
         }
     }
 
-    if let Some(action) = get_action(repo) {
-        output.push(format!(" {}", action));
-    }
     Some(output.into_iter().collect::<String>())
 }
 
@@ -123,64 +120,18 @@ fn count_statuses(r: &Repository) -> Option<(usize, usize, usize, usize)> {
     ))
 }
 
-fn get_action(repo: &Repository) -> Option<String> {
-    let gitdir = repo.path();
-
-    for tmp in &[
-        gitdir.join("rebase-apply"),
-        gitdir.join("rebase"),
-        gitdir.join("..").join(".dotest"),
-    ] {
-        if tmp.join("rebasing").exists() {
-            return Some("rebase".to_string());
-        }
-        if tmp.join("applying").exists() {
-            return Some("am".to_string());
-        }
-        if tmp.exists() {
-            return Some("am/rebase".to_string());
-        }
-    }
-
-    for tmp in &[
-        gitdir.join("rebase-merge").join("interactive"),
-        gitdir.join(".dotest-merge").join("interactive"),
-    ] {
-        if tmp.exists() {
-            return Some("rebase-i".to_string());
-        }
-    }
-
-    for tmp in &[gitdir.join("rebase-merge"), gitdir.join(".dotest-merge")] {
-        if tmp.exists() {
-            return Some("rebase-m".to_string());
-        }
-    }
-
-    if gitdir.join("MERGE_HEAD").exists() {
-        return Some("merge".to_string());
-    }
-
-    if gitdir.join("BISECT_LOG").exists() {
-        return Some("bisect".to_string());
-    }
-
-    if gitdir.join("CHERRY_PICK_HEAD").exists() {
-        if gitdir.join("sequencer").exists() {
-            return Some("cherry-seq".to_string());
-        } else {
-            return Some("cherry".to_string());
-        }
-    }
-
-    if gitdir.join("sequencer").exists() {
-        return Some("cherry-or-revert".to_string());
-    }
-
-    None
-}
 fn get_time() -> String {
     chrono::Local::now().time().format("%H:%M").to_string()
+}
+
+fn get_hostname() -> String {
+    let mut string = [0 as libc::c_char; 255];
+
+    unsafe {
+        libc::gethostname(&mut string[0], 255);
+    }
+
+    ptr_to_string(&mut string[0])
 }
 
 fn ptr_to_string(name: *mut i8) -> String {
@@ -197,30 +148,13 @@ fn ptr_to_string(name: *mut i8) -> String {
     string
 }
 
-fn get_hostname() -> String {
-    let mut string = [0 as libc::c_char; 255];
-
-    unsafe {
-        libc::gethostname(&mut string[0], 255);
-    }
-
-    ptr_to_string(&mut string[0])
-}
-
 fn pwd(path: &str) -> &str {
     let home = dirs::home_dir().unwrap();
-    let path = match home.to_str() {
-        p if Some(path) == p => return "home",
-        _ => path,
-    };
-
-    let mut index = 0;
-    for (i, c) in path.chars().enumerate() {
-        if c == '/' {
-            index = i
-        }
+    match path {
+        "/" => "root",
+        p if Some(p) == home.to_str() => "home",
+        _ => &path[path.rfind('/').unwrap() + 1..],
     }
-    &path[index + 1..]
 }
 
 fn main() {
@@ -229,11 +163,6 @@ fn main() {
         .subcommand(SubCommand::with_name("precmd"))
         .subcommand(
             SubCommand::with_name("prompt")
-                .arg(
-                    Arg::with_name("last_return_code")
-                        .short("r")
-                        .takes_value(true),
-                )
                 .arg(Arg::with_name("keymap").short("k").takes_value(true)),
         )
         .get_matches();
