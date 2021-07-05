@@ -14,7 +14,7 @@ const PURPLE: &str = "#b3869b";
 const ORANGE: &str = "#fe8019";
 const YELLOW: &str = "#fabd2f";
 const WHITE: &str = "#d5c4a1";
-const BRBLACK: &str = "#665c54";
+const BLACK: &str = "#665c54";
 
 fn repo_status(repo: &Repository) -> Option<String> {
     let mut output = vec![];
@@ -178,7 +178,7 @@ fn main() {
             };
 
             let display_time = format!("%F{{{}}}[{}] %f", WHITE, get_time());
-            let display_host = format!("%F{{{}}}{}%f%F{{{}}}:%f", BLUE, get_hostname(), BRBLACK);
+            let display_host = format!("%F{{{}}}{}%f%F{{{}}}:%f", BLUE, get_hostname(), BLACK);
             let display_branch = format!("%F{{{}}}%f{} ", CYAN, branch.unwrap_or_default());
 
             print!(
