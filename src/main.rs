@@ -6,15 +6,15 @@ use std::env;
 const INSERT_SYMBOL: &str = ">";
 const COMMAND_SYMBOL: &str = "<";
 const COMMAND_KEYMAP: &str = "vicmd";
-const RED: &str = "#fb4934";
-const BLUE: &str = "#83a598";
-const CYAN: &str = "#8ec07c";
-//const GREEN: &str = "#b8bb26";
-const PURPLE: &str = "#b3869b";
-const ORANGE: &str = "#fe8019";
-const YELLOW: &str = "#fabd2f";
-const WHITE: &str = "#d5c4a1";
-const BLACK: &str = "#665c54";
+const RED: &str = "#ff5555";
+const CYAN: &str = "#8be9fd";
+const GREEN: &str = "#50fa7b";
+const PURPLE: &str = "#bd93f9";
+const ORANGE: &str = "#ffb86c";
+const YELLOW: &str = "#f1fa8c";
+const WHITE: &str = "#f8f8f2";
+// const BLACK: &str = "#191a21";
+const PINK: &str = "#ff79c6";
 
 fn repo_status(repo: &Repository) -> Option<String> {
     let mut output = vec![];
@@ -178,7 +178,7 @@ fn main() {
             };
 
             let display_time = format!("%F{{{}}}[{}] %f", WHITE, get_time());
-            let display_host = format!("%F{{{}}}{}%f%F{{{}}}:%f", BLUE, get_hostname(), BLACK);
+            let display_host = format!("%F{{{}}}{}%f%F{{{}}}:%f", GREEN, get_hostname(), PINK);
             let display_branch = format!("%F{{{}}}%f{} ", CYAN, branch.unwrap_or_default());
 
             print!(
